@@ -1,0 +1,40 @@
+// Prisma-schema voor het storingsformulier.
+// Opslag: PostgreSQL (Neon). Op Vercel: zet DATABASE_URL (pooled) en
+// DIRECT_URL (direct/unpooled) als environment variables.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Storing {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // --- Klantgedeelte (ingevuld via /storing) ---
+  datum        String
+  adres        String
+  telefoon     String
+  email        String
+  omschrijving String
+  entiteit     String
+  offerte      String // "ja" | "nee"
+  maxBedrag    String?
+
+  // --- Door ons in te vullen (ingevuld via /intern/[id]) ---
+  werknummer  String?
+  monteur     String?
+  internDatum String?
+  internTijd  String?
+
+  // Markeert of het interne blok al is aangevuld.
+  internAangevuld Boolean @default(false)
+
+  @@index([createdAt])
+}

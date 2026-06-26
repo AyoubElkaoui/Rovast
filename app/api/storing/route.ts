@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { Resend } from "resend";
-import { buildStoringPdf, type StoringData } from "@/lib/storing-pdf";
+import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
+// Alleen klantvelden — het interne blok wordt later via /intern aangevuld.
 const storingSchema = z.object({
   datum: z.string().trim().min(1, "Datum is verplicht"),
   adres: z.string().trim().min(1, "Adresgegevens zijn verplicht"),
@@ -16,11 +18,6 @@ const storingSchema = z.object({
     errorMap: () => ({ message: "Geef aan of een offerte gewenst is" }),
   }),
   maxBedrag: z.string().trim().optional().default(""),
-  // Sectie "Door ons in te vullen" — allemaal optioneel
-  werknummer: z.string().trim().optional().default(""),
-  monteur: z.string().trim().optional().default(""),
-  internDatum: z.string().trim().optional().default(""),
-  internTijd: z.string().trim().optional().default(""),
   // Honeypot — moet leeg blijven
   website: z.string().optional().default(""),
 });
@@ -50,42 +47,41 @@ export async function POST(req: Request) {
 
   const data = parsed.data;
 
-  // Honeypot gevuld → bot. Stil "OK" teruggeven zonder PDF/mail.
+  // Honeypot gevuld → bot. Stil "OK" zonder op te slaan/mailen.
   if (data.website.trim() !== "") {
-    return NextResponse.json({ ok: true, filename: "", pdf: "" });
+    return NextResponse.json({ ok: true, id: "" });
   }
 
-  // PDF genereren
-  const pdfData: StoringData = {
-    datum: data.datum,
-    adres: data.adres,
-    telefoon: data.telefoon,
-    email: data.email,
-    omschrijving: data.omschrijving,
-    entiteit: data.entiteit,
-    offerte: data.offerte,
-    maxBedrag: data.maxBedrag,
-    werknummer: data.werknummer,
-    monteur: data.monteur,
-    internDatum: data.internDatum,
-    internTijd: data.internTijd,
-  };
-
-  let bytes: Uint8Array;
-  let filename: string;
+  // 1) Opslaan in de database
+  let id: string;
   try {
-    ({ bytes, filename } = await buildStoringPdf(pdfData));
+    const rec = await prisma.storing.create({
+      data: {
+        datum: data.datum,
+        adres: data.adres,
+        telefoon: data.telefoon,
+        email: data.email,
+        omschrijving: data.omschrijving,
+        entiteit: data.entiteit,
+        offerte: data.offerte,
+        maxBedrag: data.maxBedrag || null,
+      },
+    });
+    id = rec.id;
   } catch (err) {
-    console.error("PDF genereren mislukt:", err);
+    console.error("Opslaan in database mislukt:", err);
     return NextResponse.json(
-      { ok: false, error: "Kon de PDF niet genereren." },
+      { ok: false, error: "Kon de melding niet opslaan. Probeer later opnieuw." },
       { status: 500 },
     );
   }
 
-  const base64 = Buffer.from(bytes).toString("base64");
+  // 2) Interne aanvullink bepalen (override via APP_BASE_URL, anders huidige origin)
+  const baseUrl =
+    process.env.APP_BASE_URL?.replace(/\/+$/, "") || new URL(req.url).origin;
+  const internUrl = `${baseUrl}/intern/${id}`;
 
-  // Mail versturen — mag de response NIET breken.
+  // 3) Mail naar Elmar (mag de response NIET breken)
   const apiKey = process.env.RESEND_API_KEY;
   const to = process.env.STORING_TO;
   const from =
@@ -94,9 +90,9 @@ export async function POST(req: Request) {
   if (apiKey && to) {
     try {
       const resend = new Resend(apiKey);
-      const summary = [
-        `Nieuwe storingsmelding via het formulier.`,
-        ``,
+      const text = [
+        "Er is een nieuwe storingsmelding binnengekomen.",
+        "",
         `Datum: ${data.datum}`,
         `Adres: ${data.adres}`,
         `Telefoon huurder: ${data.telefoon}`,
@@ -104,20 +100,53 @@ export async function POST(req: Request) {
         `Entiteit t.b.v. facturatie: ${data.entiteit}`,
         `Offerte gewenst: ${data.offerte === "ja" ? "Ja" : "Nee"}`,
         `Max. bedrag zonder offerte: ${data.maxBedrag || "—"}`,
-        ``,
-        `Omschrijving storing:`,
+        "",
+        "Omschrijving storing:",
         data.omschrijving,
-        ``,
-        `De volledige melding zit als PDF in de bijlage.`,
+        "",
+        "Open de melding om het interne blok aan te vullen en PDF/Excel te downloaden:",
+        internUrl,
       ].join("\n");
+
+      const esc = (s: string) =>
+        s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      const html = `
+        <div style="font-family:Arial,Helvetica,sans-serif;color:#1f2937;max-width:600px">
+          <h2 style="color:#1f3a5f;margin:0 0 4px">Nieuwe storingsmelding</h2>
+          <p style="color:#64748b;margin:0 0 16px">Elmar Services | Rovast</p>
+          <table style="border-collapse:collapse;width:100%;font-size:14px">
+            ${[
+              ["Datum", data.datum],
+              ["Adres", data.adres],
+              ["Telefoon huurder", data.telefoon],
+              ["E-mail huurder", data.email],
+              ["Entiteit t.b.v. facturatie", data.entiteit],
+              ["Offerte gewenst", data.offerte === "ja" ? "Ja" : "Nee"],
+              ["Max. bedrag zonder offerte", data.maxBedrag || "—"],
+            ]
+              .map(
+                ([k, v]) =>
+                  `<tr><td style="padding:4px 12px 4px 0;color:#64748b;vertical-align:top">${esc(
+                    k,
+                  )}</td><td style="padding:4px 0">${esc(v)}</td></tr>`,
+              )
+              .join("")}
+          </table>
+          <p style="margin:16px 0 4px;color:#64748b;font-size:14px">Omschrijving storing</p>
+          <p style="margin:0 0 20px;white-space:pre-wrap;font-size:14px">${esc(
+            data.omschrijving,
+          )}</p>
+          <a href="${internUrl}" style="display:inline-block;background:#1f3a5f;color:#fff;text-decoration:none;padding:10px 18px;border-radius:8px;font-weight:600;font-size:14px">Melding openen &amp; aanvullen</a>
+          <p style="margin:16px 0 0;color:#94a3b8;font-size:12px">${internUrl}</p>
+        </div>`;
 
       const { error } = await resend.emails.send({
         from,
         to,
         replyTo: data.email,
-        subject: `Storingsmelding — ${data.adres}`,
-        text: summary,
-        attachments: [{ filename, content: base64 }],
+        subject: `Nieuwe storingsmelding — ${data.adres}`,
+        text,
+        html,
       });
 
       if (error) {
@@ -128,9 +157,9 @@ export async function POST(req: Request) {
     }
   } else {
     console.warn(
-      "RESEND_API_KEY of STORING_TO ontbreekt — mail wordt overgeslagen, PDF-download werkt wel.",
+      "RESEND_API_KEY of STORING_TO ontbreekt — mail wordt overgeslagen (melding is wel opgeslagen).",
     );
   }
 
-  return NextResponse.json({ ok: true, filename, pdf: base64 });
+  return NextResponse.json({ ok: true, id });
 }

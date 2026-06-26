@@ -1,13 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 
 type SubmitState = "idle" | "submitting" | "success" | "error";
 
 interface ApiResponse {
   ok: boolean;
-  filename?: string;
-  pdf?: string;
+  id?: string;
   error?: string;
   issues?: Record<string, string[]>;
 }
@@ -18,28 +17,10 @@ function todayIso(): string {
   return new Date(now.getTime() - tz).toISOString().slice(0, 10);
 }
 
-/** base64 → Blob, voor de iframe-preview en download. */
-function base64ToBlob(base64: string, type = "application/pdf"): Blob {
-  const binary = atob(base64);
-  const len = binary.length;
-  const bytes = new Uint8Array(len);
-  for (let i = 0; i < len; i++) bytes[i] = binary.charCodeAt(i);
-  return new Blob([bytes], { type });
-}
-
 export default function StoringPage() {
   const [state, setState] = useState<SubmitState>("idle");
   const [errorMsg, setErrorMsg] = useState<string>("");
-  const [pdfUrl, setPdfUrl] = useState<string>("");
-  const [filename, setFilename] = useState<string>("storingsmelding.pdf");
-  const blobUrlRef = useRef<string>("");
-
-  // Object-URL opruimen om geheugenlekken te voorkomen.
-  useEffect(() => {
-    return () => {
-      if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current);
-    };
-  }, []);
+  const [reference, setReference] = useState<string>("");
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -66,14 +47,7 @@ export default function StoringPage() {
         return;
       }
 
-      if (data.pdf) {
-        const blob = base64ToBlob(data.pdf);
-        if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current);
-        const url = URL.createObjectURL(blob);
-        blobUrlRef.current = url;
-        setPdfUrl(url);
-        setFilename(data.filename || "storingsmelding.pdf");
-      }
+      setReference(data.id ?? "");
       setState("success");
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch {
@@ -85,11 +59,7 @@ export default function StoringPage() {
   }
 
   function handleNew() {
-    if (blobUrlRef.current) {
-      URL.revokeObjectURL(blobUrlRef.current);
-      blobUrlRef.current = "";
-    }
-    setPdfUrl("");
+    setReference("");
     setState("idle");
     setErrorMsg("");
   }
@@ -100,50 +70,34 @@ export default function StoringPage() {
         <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
           <div className="rounded-t-xl border-b border-slate-200 bg-navy px-6 py-5">
             <h1 className="text-xl font-semibold text-white">
-              Storingsmelding verzonden
+              Storingsmelding ontvangen
             </h1>
             <p className="mt-1 text-sm text-slate-200">
-              Bedankt. Hieronder vind je een preview van je melding.
+              Bedankt. Je melding is geregistreerd en wordt in behandeling
+              genomen.
             </p>
           </div>
 
           <div className="space-y-4 p-6">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            {reference && (
               <p className="text-sm text-slate-600">
-                Bestand:{" "}
-                <span className="font-medium text-slate-900">{filename}</span>
-              </p>
-              <div className="flex gap-2">
-                {pdfUrl && (
-                  <a
-                    href={pdfUrl}
-                    download={filename}
-                    className="inline-flex items-center justify-center rounded-lg bg-navy px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90"
-                  >
-                    Download PDF
-                  </a>
-                )}
-                <button
-                  type="button"
-                  onClick={handleNew}
-                  className="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-                >
-                  Nieuwe melding
-                </button>
-              </div>
-            </div>
-
-            {pdfUrl ? (
-              <iframe
-                title="PDF-preview storingsmelding"
-                src={pdfUrl}
-                className="h-[75vh] w-full rounded-lg border border-slate-200"
-              />
-            ) : (
-              <p className="text-sm text-slate-600">
-                De melding is verwerkt.
+                Referentie:{" "}
+                <span className="font-mono font-medium text-slate-900">
+                  {reference}
+                </span>
               </p>
             )}
+            <p className="text-sm text-slate-600">
+              Je hoeft verder niets te doen. Wij nemen indien nodig contact met
+              je op via de opgegeven gegevens.
+            </p>
+            <button
+              type="button"
+              onClick={handleNew}
+              className="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+            >
+              Nieuwe melding
+            </button>
           </div>
         </div>
       </main>
@@ -157,9 +111,7 @@ export default function StoringPage() {
           <h1 className="text-2xl font-semibold text-white">
             Reparatie- / storingsformulier
           </h1>
-          <p className="mt-1 text-sm text-slate-200">
-            Elmar Services | Rovast
-          </p>
+          <p className="mt-1 text-sm text-slate-200">Elmar Services | Rovast</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-8 p-6" noValidate>
@@ -201,11 +153,7 @@ export default function StoringPage() {
               />
             </Field>
 
-            <Field
-              label="Adresgegevens reparatie"
-              htmlFor="adres"
-              required
-            >
+            <Field label="Adresgegevens reparatie" htmlFor="adres" required>
               <textarea
                 id="adres"
                 name="adres"
@@ -251,11 +199,7 @@ export default function StoringPage() {
               />
             </Field>
 
-            <Field
-              label="Entiteit t.b.v. facturatie"
-              htmlFor="entiteit"
-              required
-            >
+            <Field label="Entiteit t.b.v. facturatie" htmlFor="entiteit" required>
               <input
                 type="text"
                 id="entiteit"
@@ -308,53 +252,6 @@ export default function StoringPage() {
             </Field>
           </section>
 
-          {/* --- Sectie: door ons in te vullen --- */}
-          <section className="space-y-5 rounded-lg bg-slate-50 p-5">
-            <div>
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-navy">
-                Door ons in te vullen
-              </h2>
-              <p className="mt-1 text-xs text-slate-500">
-                Niet verplicht — wordt intern aangevuld.
-              </p>
-            </div>
-
-            <div className="grid gap-5 sm:grid-cols-2">
-              <Field label="Werknummer" htmlFor="werknummer">
-                <input
-                  type="text"
-                  id="werknummer"
-                  name="werknummer"
-                  className={inputClass}
-                />
-              </Field>
-              <Field label="Monteur" htmlFor="monteur">
-                <input
-                  type="text"
-                  id="monteur"
-                  name="monteur"
-                  className={inputClass}
-                />
-              </Field>
-              <Field label="Datum" htmlFor="internDatum">
-                <input
-                  type="date"
-                  id="internDatum"
-                  name="internDatum"
-                  className={inputClass}
-                />
-              </Field>
-              <Field label="Tijd" htmlFor="internTijd">
-                <input
-                  type="time"
-                  id="internTijd"
-                  name="internTijd"
-                  className={inputClass}
-                />
-              </Field>
-            </div>
-          </section>
-
           <div className="flex items-center justify-end gap-3 border-t border-slate-200 pt-6">
             <button
               type="submit"
@@ -395,7 +292,9 @@ function Field({
         <span>
           {label} {required && <span className="text-red-500">*</span>}
         </span>
-        {hint && <span className="text-xs font-normal text-slate-400">{hint}</span>}
+        {hint && (
+          <span className="text-xs font-normal text-slate-400">{hint}</span>
+        )}
       </label>
       {children}
     </div>
