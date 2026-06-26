@@ -5,6 +5,7 @@ import {
   StandardFonts,
   rgb,
 } from "pdf-lib";
+import { ELMAR_LOGO_PNG_BASE64 } from "./logo-elmar";
 
 export interface StoringData {
   datum: string;
@@ -154,6 +155,17 @@ export async function buildStoringPdf(
   const font = await doc.embedFont(StandardFonts.Helvetica);
   const fontBold = await doc.embedFont(StandardFonts.HelveticaBold);
 
+  // Logo inbetten (base64 → bytes). Mag de PDF niet breken als het ooit faalt.
+  let logo: Awaited<ReturnType<typeof doc.embedPng>> | null = null;
+  try {
+    const raw = atob(ELMAR_LOGO_PNG_BASE64);
+    const logoBytes = new Uint8Array(raw.length);
+    for (let i = 0; i < raw.length; i++) logoBytes[i] = raw.charCodeAt(i);
+    logo = await doc.embedPng(logoBytes);
+  } catch {
+    logo = null;
+  }
+
   let page: PDFPage = doc.addPage([PAGE_W, PAGE_H]);
   let y = PAGE_H - MARGIN;
 
@@ -167,6 +179,17 @@ export async function buildStoringPdf(
   };
 
   // --- Header ---
+  // Logo rechtsboven, uitgelijnd met de titel.
+  if (logo) {
+    const logoW = 150;
+    const logoH = (logo.height / logo.width) * logoW;
+    page.drawImage(logo, {
+      x: MARGIN + CONTENT_W - logoW,
+      y: y - logoH + 4,
+      width: logoW,
+      height: logoH,
+    });
+  }
   page.drawText("Reparatie- / storingsformulier", {
     x: MARGIN,
     y: y - 22,

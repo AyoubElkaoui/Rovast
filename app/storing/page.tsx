@@ -67,8 +67,16 @@ export default function StoringPage() {
   if (state === "success") {
     return (
       <main className="mx-auto max-w-3xl px-4 py-10">
-        <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
-          <div className="rounded-t-xl border-b border-slate-200 bg-navy px-6 py-5">
+        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+          <div className="flex items-center border-b border-slate-200 bg-white px-6 py-4">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/logo-elmar.png"
+              alt="Elmar Services"
+              className="h-11 w-auto"
+            />
+          </div>
+          <div className="border-b border-slate-200 bg-navy px-6 py-5">
             <h1 className="text-xl font-semibold text-white">
               Storingsmelding ontvangen
             </h1>
@@ -107,6 +115,14 @@ export default function StoringPage() {
   return (
     <main className="mx-auto max-w-3xl px-4 py-10">
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div className="flex items-center border-b border-slate-200 bg-white px-6 py-4">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/logo-elmar.png"
+            alt="Elmar Services"
+            className="h-11 w-auto"
+          />
+        </div>
         <div className="border-b border-slate-200 bg-navy px-6 py-6">
           <h1 className="text-2xl font-semibold text-white">
             Reparatie- / storingsformulier
