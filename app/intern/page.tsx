@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requireInternPage } from "@/lib/intern-auth";
+import { formatAdres } from "@/lib/storing-pdf";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -59,7 +60,9 @@ export default async function InternIndexPage() {
                           timeStyle: "short",
                         })}
                       </td>
-                      <td className="py-3 pr-4 text-slate-900">{m.adres}</td>
+                      <td className="py-3 pr-4 text-slate-900">
+                        {formatAdres(m)}
+                      </td>
                       <td className="py-3 pr-4">
                         {m.internAangevuld ? (
                           <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">

@@ -2,15 +2,43 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { Resend } from "resend";
 import { prisma } from "@/lib/prisma";
+import { formatAdres } from "@/lib/storing-pdf";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+// Nederlandse postcode: 4 cijfers (eerste niet 0) + 2 letters, spatie optioneel.
+const POSTCODE_RE = /^[1-9][0-9]{3}\s?[A-Za-z]{2}$/;
+// NL telefoon na het strippen van spaties/streepjes/haakjes: +31 / 0031 / 0 + 9 cijfers.
+const TELEFOON_RE = /^(\+31|0031|0)[1-9][0-9]{8}$/;
+
 // Alleen klantvelden — het interne blok wordt later via /intern aangevuld.
 const storingSchema = z.object({
   datum: z.string().trim().min(1, "Datum is verplicht"),
-  adres: z.string().trim().min(1, "Adresgegevens zijn verplicht"),
-  telefoon: z.string().trim().min(1, "Telefoonnummer is verplicht"),
+  straat: z.string().trim().min(1, "Straatnaam is verplicht"),
+  huisnummer: z
+    .string()
+    .trim()
+    .min(1, "Huisnummer is verplicht")
+    .regex(/^[0-9]/, "Huisnummer moet met een cijfer beginnen"),
+  postcode: z
+    .string()
+    .trim()
+    .regex(POSTCODE_RE, "Vul een geldige postcode in, bijv. 1234 AB")
+    // Normaliseer naar "1234 AB" (hoofdletters, één spatie).
+    .transform((v) => {
+      const c = v.replace(/\s+/g, "").toUpperCase();
+      return `${c.slice(0, 4)} ${c.slice(4)}`;
+    }),
+  plaats: z.string().trim().min(1, "Plaats is verplicht"),
+  telefoon: z
+    .string()
+    .trim()
+    .min(1, "Telefoonnummer is verplicht")
+    .refine(
+      (v) => TELEFOON_RE.test(v.replace(/[\s\-().]/g, "")),
+      "Vul een geldig Nederlands telefoonnummer in, bijv. 06 12345678",
+    ),
   email: z.string().trim().email("Vul een geldig e-mailadres in"),
   omschrijving: z.string().trim().min(1, "Omschrijving is verplicht"),
   entiteit: z.string().trim().min(1, "Entiteit is verplicht"),
@@ -58,7 +86,10 @@ export async function POST(req: Request) {
     const rec = await prisma.storing.create({
       data: {
         datum: data.datum,
-        adres: data.adres,
+        straat: data.straat,
+        huisnummer: data.huisnummer,
+        postcode: data.postcode,
+        plaats: data.plaats,
         telefoon: data.telefoon,
         email: data.email,
         omschrijving: data.omschrijving,
@@ -94,7 +125,7 @@ export async function POST(req: Request) {
         "Er is een nieuwe storingsmelding binnengekomen.",
         "",
         `Datum: ${data.datum}`,
-        `Adres: ${data.adres}`,
+        `Adres: ${formatAdres(data)}`,
         `Telefoon huurder: ${data.telefoon}`,
         `E-mail huurder: ${data.email}`,
         `Entiteit t.b.v. facturatie: ${data.entiteit}`,
@@ -117,7 +148,7 @@ export async function POST(req: Request) {
           <table style="border-collapse:collapse;width:100%;font-size:14px">
             ${[
               ["Datum", data.datum],
-              ["Adres", data.adres],
+              ["Adres", formatAdres(data)],
               ["Telefoon huurder", data.telefoon],
               ["E-mail huurder", data.email],
               ["Entiteit t.b.v. facturatie", data.entiteit],
@@ -144,7 +175,7 @@ export async function POST(req: Request) {
         from,
         to,
         replyTo: data.email,
-        subject: `Nieuwe storingsmelding — ${data.adres}`,
+        subject: `Nieuwe storingsmelding — ${formatAdres(data)}`,
         text,
         html,
       });

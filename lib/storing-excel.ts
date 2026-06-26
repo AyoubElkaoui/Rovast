@@ -1,5 +1,5 @@
 import ExcelJS from "exceljs";
-import type { StoringData } from "./storing-pdf";
+import { formatAdres, type StoringData } from "./storing-pdf";
 
 const NAVY = "FF1F3A5F"; // ARGB — huisstijl navy #1f3a5f
 
@@ -34,7 +34,9 @@ export async function buildStoringExcel(
 
   const rows: Array<[string, string]> = [
     ["Datum", data.datum],
-    ["Adresgegevens reparatie", data.adres],
+    ["Straat en huisnummer", `${data.straat} ${data.huisnummer}`.trim()],
+    ["Postcode", data.postcode],
+    ["Plaats", data.plaats],
     ["Telefoonnummer huurder", data.telefoon],
     ["E-mailadres huurder", data.email],
     ["Omschrijving storing", data.omschrijving],
@@ -65,7 +67,7 @@ export async function buildStoringExcel(
 
   const arrayBuffer = await wb.xlsx.writeBuffer();
   const buffer = Buffer.from(arrayBuffer as ArrayBuffer);
-  const filename = `Storingsmelding_${sanitize(data.adres)}_${sanitize(
+  const filename = `Storingsmelding_${sanitize(formatAdres(data))}_${sanitize(
     data.datum,
   )}.xlsx`;
 

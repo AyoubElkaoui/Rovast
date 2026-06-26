@@ -8,7 +8,10 @@ import {
 
 export interface StoringData {
   datum: string;
-  adres: string;
+  straat: string;
+  huisnummer: string;
+  postcode: string;
+  plaats: string;
   telefoon: string;
   email: string;
   omschrijving: string;
@@ -20,6 +23,18 @@ export interface StoringData {
   monteur?: string;
   internDatum?: string;
   internTijd?: string;
+}
+
+/** Compacte adresweergave op één regel, voor mailonderwerp, bestandsnaam en lijsten. */
+export function formatAdres(d: {
+  straat: string;
+  huisnummer: string;
+  postcode: string;
+  plaats: string;
+}): string {
+  const regel1 = [d.straat, d.huisnummer].map((s) => s.trim()).filter(Boolean).join(" ");
+  const regel2 = [d.postcode, d.plaats].map((s) => s.trim()).filter(Boolean).join(" ");
+  return [regel1, regel2].filter(Boolean).join(", ");
 }
 
 // --- kleuren ---
@@ -239,7 +254,8 @@ export async function buildStoringPdf(
   // --- Sectie 1: Gegevens aanvraag ---
   drawSection("Gegevens aanvraag");
   drawRow("Datum", data.datum);
-  drawRow("Adresgegevens reparatie", data.adres);
+  drawRow("Straat en huisnummer", `${data.straat} ${data.huisnummer}`.trim());
+  drawRow("Postcode en plaats", `${data.postcode} ${data.plaats}`.trim());
   drawRow("Telefoonnummer huurder", data.telefoon);
   drawRow("E-mailadres huurder", data.email);
   drawRow("Omschrijving storing", data.omschrijving);
@@ -288,7 +304,7 @@ export async function buildStoringPdf(
 
   const bytes = await doc.save();
   const filename = `Storingsmelding_${sanitizeFilenamePart(
-    data.adres,
+    formatAdres(data),
   )}_${sanitizeFilenamePart(data.datum)}.pdf`;
 
   return { bytes, filename };

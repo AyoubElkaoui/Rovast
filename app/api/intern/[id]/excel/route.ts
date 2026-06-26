@@ -25,7 +25,10 @@ export async function GET(
 
   const data: StoringData = {
     datum: m.datum,
-    adres: m.adres,
+    straat: m.straat,
+    huisnummer: m.huisnummer,
+    postcode: m.postcode,
+    plaats: m.plaats,
     telefoon: m.telefoon,
     email: m.email,
     omschrijving: m.omschrijving,

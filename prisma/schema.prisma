@@ -19,7 +19,10 @@ model Storing {
 
   // --- Klantgedeelte (ingevuld via /storing) ---
   datum        String
-  adres        String
+  straat       String
+  huisnummer   String
+  postcode     String
+  plaats       String
   telefoon     String
   email        String
   omschrijving String

@@ -114,7 +114,7 @@ export default function StoringPage() {
           <p className="mt-1 text-sm text-slate-200">Elmar Services | Rovast</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-8 p-6" noValidate>
+        <form onSubmit={handleSubmit} className="space-y-8 p-6">
           {state === "error" && (
             <div
               role="alert"
@@ -153,16 +153,65 @@ export default function StoringPage() {
               />
             </Field>
 
-            <Field label="Adresgegevens reparatie" htmlFor="adres" required>
-              <textarea
-                id="adres"
-                name="adres"
-                required
-                rows={3}
-                placeholder="Straat, huisnummer, postcode, plaats"
-                className={inputClass}
-              />
-            </Field>
+            <div className="grid gap-5 sm:grid-cols-3">
+              <div className="sm:col-span-2">
+                <Field label="Straatnaam" htmlFor="straat" required>
+                  <input
+                    type="text"
+                    id="straat"
+                    name="straat"
+                    required
+                    autoComplete="address-line1"
+                    placeholder="Bijv. Dorpsstraat"
+                    className={inputClass}
+                  />
+                </Field>
+              </div>
+              <Field label="Huisnummer" htmlFor="huisnummer" required>
+                <input
+                  type="text"
+                  id="huisnummer"
+                  name="huisnummer"
+                  required
+                  inputMode="numeric"
+                  pattern="[0-9]+[A-Za-z0-9 \-]*"
+                  title="Begin met een huisnummer, bijv. 12 of 12A"
+                  placeholder="12"
+                  className={inputClass}
+                />
+              </Field>
+            </div>
+
+            <div className="grid gap-5 sm:grid-cols-3">
+              <Field label="Postcode" htmlFor="postcode" required>
+                <input
+                  type="text"
+                  id="postcode"
+                  name="postcode"
+                  required
+                  autoComplete="postal-code"
+                  inputMode="text"
+                  pattern="[1-9][0-9]{3}\s?[A-Za-z]{2}"
+                  title="Nederlandse postcode, bijv. 1234 AB"
+                  placeholder="1234 AB"
+                  maxLength={7}
+                  className={`${inputClass} uppercase placeholder:normal-case`}
+                />
+              </Field>
+              <div className="sm:col-span-2">
+                <Field label="Plaats" htmlFor="plaats" required>
+                  <input
+                    type="text"
+                    id="plaats"
+                    name="plaats"
+                    required
+                    autoComplete="address-level2"
+                    placeholder="Bijv. Amsterdam"
+                    className={inputClass}
+                  />
+                </Field>
+              </div>
+            </div>
 
             <div className="grid gap-5 sm:grid-cols-2">
               <Field label="Telefoonnummer huurder" htmlFor="telefoon" required>
@@ -172,6 +221,10 @@ export default function StoringPage() {
                   name="telefoon"
                   required
                   autoComplete="tel"
+                  inputMode="tel"
+                  pattern="[+0-9][0-9\s\-()]{8,}"
+                  title="Bijv. 06 12345678 of +31 6 12345678"
+                  placeholder="06 12345678"
                   className={inputClass}
                 />
               </Field>
@@ -183,6 +236,8 @@ export default function StoringPage() {
                   name="email"
                   required
                   autoComplete="email"
+                  inputMode="email"
+                  placeholder="naam@voorbeeld.nl"
                   className={inputClass}
                 />
               </Field>

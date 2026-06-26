@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireInternPage } from "@/lib/intern-auth";
+import { formatAdres } from "@/lib/storing-pdf";
 import InternForm from "./InternForm";
 
 export const runtime = "nodejs";
@@ -20,7 +21,8 @@ export default async function InternDetailPage({
 
   const klant: Array<[string, string]> = [
     ["Datum", m.datum],
-    ["Adresgegevens reparatie", m.adres],
+    ["Straat en huisnummer", `${m.straat} ${m.huisnummer}`.trim()],
+    ["Postcode en plaats", `${m.postcode} ${m.plaats}`.trim()],
     ["Telefoonnummer huurder", m.telefoon],
     ["E-mailadres huurder", m.email],
     ["Omschrijving storing", m.omschrijving],
@@ -40,7 +42,7 @@ export default async function InternDetailPage({
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         <div className="border-b border-slate-200 bg-navy px-6 py-5">
           <h1 className="text-lg font-semibold text-white">
-            Storingsmelding — {m.adres}
+            Storingsmelding — {formatAdres(m)}
           </h1>
           <p className="mt-1 text-sm text-slate-200">
             Elmar Services | Rovast · referentie{" "}
